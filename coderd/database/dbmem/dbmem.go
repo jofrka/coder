@@ -5524,7 +5524,7 @@ func (q *FakeQuerier) GetTemplateParameterInsights(ctx context.Context, arg data
 	return rows, nil
 }
 
-func (q *FakeQuerier) GetTemplatePrebuildState(ctx context.Context, templateID uuid.UUID) (database.GetTemplatePrebuildStateRow, error) {
+func (q *FakeQuerier) GetTemplatePrebuildState(ctx context.Context, templateID uuid.UUID) ([]database.GetTemplatePrebuildStateRow, error) {
 	panic("not implemented")
 }
 
