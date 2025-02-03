@@ -39,6 +39,7 @@ type DRPCAgentClient interface {
 	DRPCConn() drpc.Conn
 
 	GetManifest(ctx context.Context, in *GetManifestRequest) (*Manifest, error)
+	StreamManifests(ctx context.Context, in *GetManifestRequest) (DRPCAgent_StreamManifestsClient, error)
 	GetServiceBanner(ctx context.Context, in *GetServiceBannerRequest) (*ServiceBanner, error)
 	UpdateStats(ctx context.Context, in *UpdateStatsRequest) (*UpdateStatsResponse, error)
 	UpdateLifecycle(ctx context.Context, in *UpdateLifecycleRequest) (*Lifecycle, error)
@@ -69,6 +70,46 @@ func (c *drpcAgentClient) GetManifest(ctx context.Context, in *GetManifestReques
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *drpcAgentClient) StreamManifests(ctx context.Context, in *GetManifestRequest) (DRPCAgent_StreamManifestsClient, error) {
+	stream, err := c.cc.NewStream(ctx, "/coder.agent.v2.Agent/StreamManifests", drpcEncoding_File_agent_proto_agent_proto{})
+	if err != nil {
+		return nil, err
+	}
+	x := &drpcAgent_StreamManifestsClient{stream}
+	if err := x.MsgSend(in, drpcEncoding_File_agent_proto_agent_proto{}); err != nil {
+		return nil, err
+	}
+	if err := x.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type DRPCAgent_StreamManifestsClient interface {
+	drpc.Stream
+	Recv() (*Manifest, error)
+}
+
+type drpcAgent_StreamManifestsClient struct {
+	drpc.Stream
+}
+
+func (x *drpcAgent_StreamManifestsClient) GetStream() drpc.Stream {
+	return x.Stream
+}
+
+func (x *drpcAgent_StreamManifestsClient) Recv() (*Manifest, error) {
+	m := new(Manifest)
+	if err := x.MsgRecv(m, drpcEncoding_File_agent_proto_agent_proto{}); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (x *drpcAgent_StreamManifestsClient) RecvMsg(m *Manifest) error {
+	return x.MsgRecv(m, drpcEncoding_File_agent_proto_agent_proto{})
 }
 
 func (c *drpcAgentClient) GetServiceBanner(ctx context.Context, in *GetServiceBannerRequest) (*ServiceBanner, error) {
@@ -172,6 +213,7 @@ func (c *drpcAgentClient) PushResourcesMonitoringUsage(ctx context.Context, in *
 
 type DRPCAgentServer interface {
 	GetManifest(context.Context, *GetManifestRequest) (*Manifest, error)
+	StreamManifests(*GetManifestRequest, DRPCAgent_StreamManifestsStream) error
 	GetServiceBanner(context.Context, *GetServiceBannerRequest) (*ServiceBanner, error)
 	UpdateStats(context.Context, *UpdateStatsRequest) (*UpdateStatsResponse, error)
 	UpdateLifecycle(context.Context, *UpdateLifecycleRequest) (*Lifecycle, error)
@@ -189,6 +231,10 @@ type DRPCAgentUnimplementedServer struct{}
 
 func (s *DRPCAgentUnimplementedServer) GetManifest(context.Context, *GetManifestRequest) (*Manifest, error) {
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
+}
+
+func (s *DRPCAgentUnimplementedServer) StreamManifests(*GetManifestRequest, DRPCAgent_StreamManifestsStream) error {
+	return drpcerr.WithCode(errors.New("Unimplemented"), drpcerr.Unimplemented)
 }
 
 func (s *DRPCAgentUnimplementedServer) GetServiceBanner(context.Context, *GetServiceBannerRequest) (*ServiceBanner, error) {
@@ -251,6 +297,15 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 					)
 			}, DRPCAgentServer.GetManifest, true
 	case 1:
+		return "/coder.agent.v2.Agent/StreamManifests", drpcEncoding_File_agent_proto_agent_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return nil, srv.(DRPCAgentServer).
+					StreamManifests(
+						in1.(*GetManifestRequest),
+						&drpcAgent_StreamManifestsStream{in2.(drpc.Stream)},
+					)
+			}, DRPCAgentServer.StreamManifests, true
+	case 2:
 		return "/coder.agent.v2.Agent/GetServiceBanner", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -259,7 +314,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*GetServiceBannerRequest),
 					)
 			}, DRPCAgentServer.GetServiceBanner, true
-	case 2:
+	case 3:
 		return "/coder.agent.v2.Agent/UpdateStats", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -268,7 +323,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*UpdateStatsRequest),
 					)
 			}, DRPCAgentServer.UpdateStats, true
-	case 3:
+	case 4:
 		return "/coder.agent.v2.Agent/UpdateLifecycle", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -277,7 +332,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*UpdateLifecycleRequest),
 					)
 			}, DRPCAgentServer.UpdateLifecycle, true
-	case 4:
+	case 5:
 		return "/coder.agent.v2.Agent/BatchUpdateAppHealths", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -286,7 +341,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*BatchUpdateAppHealthRequest),
 					)
 			}, DRPCAgentServer.BatchUpdateAppHealths, true
-	case 5:
+	case 6:
 		return "/coder.agent.v2.Agent/UpdateStartup", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -295,7 +350,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*UpdateStartupRequest),
 					)
 			}, DRPCAgentServer.UpdateStartup, true
-	case 6:
+	case 7:
 		return "/coder.agent.v2.Agent/BatchUpdateMetadata", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -304,7 +359,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*BatchUpdateMetadataRequest),
 					)
 			}, DRPCAgentServer.BatchUpdateMetadata, true
-	case 7:
+	case 8:
 		return "/coder.agent.v2.Agent/BatchCreateLogs", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -313,7 +368,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*BatchCreateLogsRequest),
 					)
 			}, DRPCAgentServer.BatchCreateLogs, true
-	case 8:
+	case 9:
 		return "/coder.agent.v2.Agent/GetAnnouncementBanners", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -322,7 +377,7 @@ func (DRPCAgentDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver,
 						in1.(*GetAnnouncementBannersRequest),
 					)
 			}, DRPCAgentServer.GetAnnouncementBanners, true
-	case 9:
+	case 10:
 		return "/coder.agent.v2.Agent/ScriptCompleted", drpcEncoding_File_agent_proto_agent_proto{},
 			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
 				return srv.(DRPCAgentServer).
@@ -372,6 +427,19 @@ func (x *drpcAgent_GetManifestStream) SendAndClose(m *Manifest) error {
 		return err
 	}
 	return x.CloseSend()
+}
+
+type DRPCAgent_StreamManifestsStream interface {
+	drpc.Stream
+	Send(*Manifest) error
+}
+
+type drpcAgent_StreamManifestsStream struct {
+	drpc.Stream
+}
+
+func (x *drpcAgent_StreamManifestsStream) Send(m *Manifest) error {
+	return x.MsgSend(m, drpcEncoding_File_agent_proto_agent_proto{})
 }
 
 type DRPCAgent_GetServiceBannerStream interface {

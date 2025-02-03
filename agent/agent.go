@@ -835,7 +835,8 @@ func (a *agent) run() (retErr error) {
 	networkOK := newCheckpoint(a.logger)
 	manifestOK := newCheckpoint(a.logger)
 
-	connMan.startAgentAPI("handle manifest", gracefulShutdownBehaviorStop, a.handleManifest(manifestOK))
+	//connMan.startAgentAPI("handle manifest", gracefulShutdownBehaviorStop, a.handleManifest(manifestOK))
+	connMan.startAgentAPI("handle manifest stream", gracefulShutdownBehaviorStop, a.handleManifestStream(manifestOK))
 
 	connMan.startAgentAPI("app health reporter", gracefulShutdownBehaviorStop,
 		func(ctx context.Context, aAPI proto.DRPCAgentClient24) error {
@@ -889,105 +890,163 @@ func (a *agent) handleManifest(manifestOK *checkpoint) func(ctx context.Context,
 			err        error
 		)
 		defer func() {
-			if !sentResult {
+			if err != nil {
 				manifestOK.complete(err)
 			}
 		}()
+
 		mp, err := aAPI.GetManifest(ctx, &proto.GetManifestRequest{})
 		if err != nil {
-			return xerrors.Errorf("fetch metadata: %w", err)
+			return xerrors.Errorf("fetch manifest: %w", err)
 		}
 		a.logger.Info(ctx, "fetched manifest", slog.F("manifest", mp))
-		manifest, err := agentsdk.ManifestFromProto(mp)
-		if err != nil {
-			a.logger.Critical(ctx, "failed to convert manifest", slog.F("manifest", mp), slog.Error(err))
-			return xerrors.Errorf("convert manifest: %w", err)
-		}
-		if manifest.AgentID == uuid.Nil {
-			return xerrors.New("nil agentID returned by manifest")
-		}
-		a.client.RewriteDERPMap(manifest.DERPMap)
-
-		// Expand the directory and send it back to coderd so external
-		// applications that rely on the directory can use it.
-		//
-		// An example is VS Code Remote, which must know the directory
-		// before initializing a connection.
-		manifest.Directory, err = expandDirectory(manifest.Directory)
-		if err != nil {
-			return xerrors.Errorf("expand directory: %w", err)
-		}
-		subsys, err := agentsdk.ProtoFromSubsystems(a.subsystems)
-		if err != nil {
-			a.logger.Critical(ctx, "failed to convert subsystems", slog.Error(err))
-			return xerrors.Errorf("failed to convert subsystems: %w", err)
-		}
-		_, err = aAPI.UpdateStartup(ctx, &proto.UpdateStartupRequest{Startup: &proto.Startup{
-			Version:           buildinfo.Version(),
-			ExpandedDirectory: manifest.Directory,
-			Subsystems:        subsys,
-		}})
-		if err != nil {
-			return xerrors.Errorf("update workspace agent startup: %w", err)
-		}
-
-		oldManifest := a.manifest.Swap(&manifest)
-		manifestOK.complete(nil)
-		sentResult = true
-
-		// The startup script should only execute on the first run!
-		if oldManifest == nil {
-			a.setLifecycle(codersdk.WorkspaceAgentLifecycleStarting)
-
-			// Perform overrides early so that Git auth can work even if users
-			// connect to a workspace that is not yet ready. We don't run this
-			// concurrently with the startup script to avoid conflicts between
-			// them.
-			if manifest.GitAuthConfigs > 0 {
-				// If this fails, we should consider surfacing the error in the
-				// startup log and setting the lifecycle state to be "start_error"
-				// (after startup script completion), but for now we'll just log it.
-				err := gitauth.OverrideVSCodeConfigs(a.filesystem)
-				if err != nil {
-					a.logger.Warn(ctx, "failed to override vscode git auth configs", slog.Error(err))
-				}
-			}
-
-			err = a.scriptRunner.Init(manifest.Scripts, aAPI.ScriptCompleted)
-			if err != nil {
-				return xerrors.Errorf("init script runner: %w", err)
-			}
-			err = a.trackGoroutine(func() {
-				start := time.Now()
-				// here we use the graceful context because the script runner is not directly tied
-				// to the agent API.
-				err := a.scriptRunner.Execute(a.gracefulCtx, agentscripts.ExecuteStartScripts)
-				// Measure the time immediately after the script has finished
-				dur := time.Since(start).Seconds()
-				if err != nil {
-					a.logger.Warn(ctx, "startup script(s) failed", slog.Error(err))
-					if errors.Is(err, agentscripts.ErrTimeout) {
-						a.setLifecycle(codersdk.WorkspaceAgentLifecycleStartTimeout)
-					} else {
-						a.setLifecycle(codersdk.WorkspaceAgentLifecycleStartError)
-					}
-				} else {
-					a.setLifecycle(codersdk.WorkspaceAgentLifecycleReady)
-				}
-
-				label := "false"
-				if err == nil {
-					label = "true"
-				}
-				a.metrics.startupScriptSeconds.WithLabelValues(label).Set(dur)
-				a.scriptRunner.StartCron()
-			})
-			if err != nil {
-				return xerrors.Errorf("track conn goroutine: %w", err)
-			}
-		}
-		return nil
+		return a.handleSingleManifest(ctx, aAPI, manifestOK, mp)
 	}
+}
+
+func (a *agent) handleManifestStream(manifestOK *checkpoint) func(ctx context.Context, aAPI proto.DRPCAgentClient24) error {
+	return func(ctx context.Context, aAPI proto.DRPCAgentClient24) error {
+		var err error
+		defer func() {
+			if err != nil {
+				manifestOK.complete(err)
+			}
+		}()
+
+		client, err := aAPI.StreamManifests(ctx, &proto.GetManifestRequest{})
+		if err != nil {
+			if err == io.EOF {
+				a.logger.Info(ctx, "stream manifest received EOF")
+				return nil
+			}
+			return xerrors.Errorf("stream manifests: %w", err)
+		}
+
+		for {
+			a.logger.Debug(ctx, "waiting on new streamed manifest")
+
+			manifest, err := client.Recv()
+			if err != nil {
+				return xerrors.Errorf("recv manifest: %w", err)
+			}
+
+			a.logger.Info(ctx, "received new streamed manifest", slog.F("manifest", manifest))
+
+			err = a.handleSingleManifest(ctx, aAPI, manifestOK, manifest)
+			if err != nil {
+				return xerrors.Errorf("handle streamed manifest: %w", err)
+			}
+		}
+	}
+}
+
+// TODO: change signature to just take in all inputs instead of returning closure; return error
+func (a *agent) handleSingleManifest(ctx context.Context, aAPI proto.DRPCAgentClient24, manifestOK *checkpoint, mp *proto.Manifest) error {
+	var (
+		sentResult bool
+		err        error
+	)
+	defer func() {
+		if !sentResult {
+			manifestOK.complete(err)
+		}
+	}()
+
+	manifest, err := agentsdk.ManifestFromProto(mp)
+	if err != nil {
+		a.logger.Critical(ctx, "failed to convert manifest", slog.F("manifest", mp), slog.Error(err))
+		return xerrors.Errorf("convert manifest: %w", err)
+	}
+	if manifest.AgentID == uuid.Nil {
+		return xerrors.New("nil agentID returned by manifest")
+	}
+	a.client.RewriteDERPMap(manifest.DERPMap)
+
+	// Expand the directory and send it back to coderd so external
+	// applications that rely on the directory can use it.
+	//
+	// An example is VS Code Remote, which must know the directory
+	// before initializing a connection.
+	manifest.Directory, err = expandDirectory(manifest.Directory)
+	if err != nil {
+		return xerrors.Errorf("expand directory: %w", err)
+	}
+	subsys, err := agentsdk.ProtoFromSubsystems(a.subsystems)
+	if err != nil {
+		a.logger.Critical(ctx, "failed to convert subsystems", slog.Error(err))
+		return xerrors.Errorf("failed to convert subsystems: %w", err)
+	}
+	_, err = aAPI.UpdateStartup(ctx, &proto.UpdateStartupRequest{Startup: &proto.Startup{
+		Version:           buildinfo.Version(),
+		ExpandedDirectory: manifest.Directory,
+		Subsystems:        subsys,
+	}})
+	if err != nil {
+		return xerrors.Errorf("update workspace agent startup: %w", err)
+	}
+
+	oldManifest := a.manifest.Swap(&manifest)
+	manifestOK.complete(nil)
+	sentResult = true
+
+	// TODO: remove
+	a.logger.Info(ctx, "NOW OWNED BY", slog.F("owner", manifest.OwnerName))
+
+	// TODO: this will probably have to change in the case of prebuilds; maybe check if owner is the same,
+	// 		 or add prebuild metadata to manifest?
+	// The startup script should only execute on the first run!
+	if oldManifest == nil {
+		a.setLifecycle(codersdk.WorkspaceAgentLifecycleStarting)
+
+		// Perform overrides early so that Git auth can work even if users
+		// connect to a workspace that is not yet ready. We don't run this
+		// concurrently with the startup script to avoid conflicts between
+		// them.
+		if manifest.GitAuthConfigs > 0 {
+			// If this fails, we should consider surfacing the error in the
+			// startup log and setting the lifecycle state to be "start_error"
+			// (after startup script completion), but for now we'll just log it.
+			err := gitauth.OverrideVSCodeConfigs(a.filesystem)
+			if err != nil {
+				a.logger.Warn(ctx, "failed to override vscode git auth configs", slog.Error(err))
+			}
+		}
+
+		err = a.scriptRunner.Init(manifest.Scripts, aAPI.ScriptCompleted)
+		if err != nil {
+			return xerrors.Errorf("init script runner: %w", err)
+		}
+		err = a.trackGoroutine(func() {
+			start := time.Now()
+			// here we use the graceful context because the script runner is not directly tied
+			// to the agent API.
+			err := a.scriptRunner.Execute(a.gracefulCtx, agentscripts.ExecuteStartScripts)
+			// Measure the time immediately after the script has finished
+			dur := time.Since(start).Seconds()
+			if err != nil {
+				a.logger.Warn(ctx, "startup script(s) failed", slog.Error(err))
+				if errors.Is(err, agentscripts.ErrTimeout) {
+					a.setLifecycle(codersdk.WorkspaceAgentLifecycleStartTimeout)
+				} else {
+					a.setLifecycle(codersdk.WorkspaceAgentLifecycleStartError)
+				}
+			} else {
+				a.setLifecycle(codersdk.WorkspaceAgentLifecycleReady)
+			}
+
+			label := "false"
+			if err == nil {
+				label = "true"
+			}
+			a.metrics.startupScriptSeconds.WithLabelValues(label).Set(dur)
+			a.scriptRunner.StartCron()
+		})
+		if err != nil {
+			return xerrors.Errorf("track conn goroutine: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // createOrUpdateNetwork waits for the manifest to be set using manifestOK, then creates or updates
