@@ -940,7 +940,6 @@ func (a *agent) handleManifestStream(manifestOK *checkpoint) func(ctx context.Co
 	}
 }
 
-// TODO: change signature to just take in all inputs instead of returning closure; return error
 func (a *agent) handleSingleManifest(ctx context.Context, aAPI proto.DRPCAgentClient24, manifestOK *checkpoint, mp *proto.Manifest) error {
 	var (
 		sentResult bool
@@ -951,6 +950,8 @@ func (a *agent) handleSingleManifest(ctx context.Context, aAPI proto.DRPCAgentCl
 			manifestOK.complete(err)
 		}
 	}()
+
+	a.metrics.manifestsReceived.Inc()
 
 	manifest, err := agentsdk.ManifestFromProto(mp)
 	if err != nil {
@@ -988,9 +989,6 @@ func (a *agent) handleSingleManifest(ctx context.Context, aAPI proto.DRPCAgentCl
 	oldManifest := a.manifest.Swap(&manifest)
 	manifestOK.complete(nil)
 	sentResult = true
-
-	// TODO: remove
-	a.logger.Info(ctx, "NOW OWNED BY", slog.F("owner", manifest.OwnerName))
 
 	// TODO: this will probably have to change in the case of prebuilds; maybe check if owner is the same,
 	// 		 or add prebuild metadata to manifest?
