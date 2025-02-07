@@ -342,7 +342,6 @@ message PushResourcesMonitoringUsageResponse {
 
 service Agent {
 	rpc GetManifest(GetManifestRequest) returns (Manifest);
-	rpc StreamManifests(GetManifestRequest) returns (stream Manifest);
 	rpc GetServiceBanner(GetServiceBannerRequest) returns (ServiceBanner);
 	rpc UpdateStats(UpdateStatsRequest) returns (UpdateStatsResponse);
 	rpc UpdateLifecycle(UpdateLifecycleRequest) returns (Lifecycle);
