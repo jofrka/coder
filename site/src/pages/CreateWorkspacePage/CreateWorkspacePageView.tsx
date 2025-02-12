@@ -248,6 +248,33 @@ export const CreateWorkspacePageView: FC<CreateWorkspacePageViewProps> = ({
 					</Alert>
 				)}
 
+				{presets.length > 0 && (
+					<FormSection
+						title="Presets"
+						description="A list of preset workspace configurations to get you started."
+					>
+						<FormFields>
+							<Stack direction="row" spacing={2}>
+								<SelectFilter
+									label="Preset"
+									options={presetOptions}
+									onSelect={(option) => {
+										setSelectedPresetIndex(
+											presetOptions.findIndex(
+												(preset) => preset.value === option?.value,
+											),
+										);
+
+										form.setFieldValue("template_version_preset_id", option?.value)
+									}}
+									placeholder="Select a preset"
+									selectedOption={presetOptions[selectedPresetIndex]}
+								/>
+							</Stack>
+						</FormFields>
+					</FormSection>
+				)}
+
 				{/* General info */}
 				<FormSection
 					title="General"

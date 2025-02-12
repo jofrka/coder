@@ -1477,7 +1477,6 @@ This is required on creation to enable a user-flow of validating a template work
 {
   "automatic_updates": "always",
   "autostart_schedule": "string",
-  "claim_prebuild_if_available": true,
   "name": "string",
   "rich_parameter_values": [
     {
@@ -1487,6 +1486,7 @@ This is required on creation to enable a user-flow of validating a template work
   ],
   "template_id": "c6d67e98-83ea-49f0-8812-e4abae2b68bc",
   "template_version_id": "0ba39c92-1f1b-4c32-aa3e-9925d7713eb1",
+  "template_version_preset_id": "512a53a7-30da-446e-a1fc-713c630baff1",
   "ttl_ms": 0
 }
 ```
@@ -1495,16 +1495,16 @@ CreateWorkspaceRequest provides options for creating a new workspace. Only one o
 
 ### Properties
 
-| Name                          | Type                                                                          | Required | Restrictions | Description                                                                                             |
-|-------------------------------|-------------------------------------------------------------------------------|----------|--------------|---------------------------------------------------------------------------------------------------------|
-| `automatic_updates`           | [codersdk.AutomaticUpdates](#codersdkautomaticupdates)                        | false    |              |                                                                                                         |
-| `autostart_schedule`          | string                                                                        | false    |              |                                                                                                         |
-| `claim_prebuild_if_available` | boolean                                                                       | false    |              |                                                                                                         |
-| `name`                        | string                                                                        | true     |              |                                                                                                         |
-| `rich_parameter_values`       | array of [codersdk.WorkspaceBuildParameter](#codersdkworkspacebuildparameter) | false    |              | Rich parameter values allows for additional parameters to be provided during the initial provision.     |
-| `template_id`                 | string                                                                        | false    |              | Template ID specifies which template should be used for creating the workspace.                         |
-| `template_version_id`         | string                                                                        | false    |              | Template version ID can be used to specify a specific version of a template for creating the workspace. |
-| `ttl_ms`                      | integer                                                                       | false    |              |                                                                                                         |
+| Name                         | Type                                                                          | Required | Restrictions | Description                                                                                             |
+|------------------------------|-------------------------------------------------------------------------------|----------|--------------|---------------------------------------------------------------------------------------------------------|
+| `automatic_updates`          | [codersdk.AutomaticUpdates](#codersdkautomaticupdates)                        | false    |              |                                                                                                         |
+| `autostart_schedule`         | string                                                                        | false    |              |                                                                                                         |
+| `name`                       | string                                                                        | true     |              |                                                                                                         |
+| `rich_parameter_values`      | array of [codersdk.WorkspaceBuildParameter](#codersdkworkspacebuildparameter) | false    |              | Rich parameter values allows for additional parameters to be provided during the initial provision.     |
+| `template_id`                | string                                                                        | false    |              | Template ID specifies which template should be used for creating the workspace.                         |
+| `template_version_id`        | string                                                                        | false    |              | Template version ID can be used to specify a specific version of a template for creating the workspace. |
+| `template_version_preset_id` | string                                                                        | false    |              |                                                                                                         |
+| `ttl_ms`                     | integer                                                                       | false    |              |                                                                                                         |
 
 ## codersdk.CryptoKey
 
@@ -4444,6 +4444,7 @@ Git clone makes use of this by parsing the URL from: 'Username for "https://gith
   "parameters": [
     {
       "name": "string",
+      "presetID": "string",
       "value": "string"
     }
   ]
@@ -4463,16 +4464,18 @@ Git clone makes use of this by parsing the URL from: 'Username for "https://gith
 ```json
 {
   "name": "string",
+  "presetID": "string",
   "value": "string"
 }
 ```
 
 ### Properties
 
-| Name    | Type   | Required | Restrictions | Description |
-|---------|--------|----------|--------------|-------------|
-| `name`  | string | false    |              |             |
-| `value` | string | false    |              |             |
+| Name       | Type   | Required | Restrictions | Description |
+|------------|--------|----------|--------------|-------------|
+| `name`     | string | false    |              |             |
+| `presetID` | string | false    |              |             |
+| `value`    | string | false    |              |             |
 
 ## codersdk.PrometheusConfig
 
@@ -4535,10 +4538,7 @@ Git clone makes use of this by parsing the URL from: 'Username for "https://gith
   "created_at": "2019-08-24T14:15:22Z",
   "current_job": {
     "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-    "status": "pending",
-    "template_display_name": "string",
-    "template_icon": "string",
-    "template_name": "string"
+    "status": "pending"
   },
   "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
   "key_id": "1e779c8a-6786-4c89-b7c3-a6666f5fd6b5",
@@ -4548,10 +4548,7 @@ Git clone makes use of this by parsing the URL from: 'Username for "https://gith
   "organization_id": "7c60d51f-b44e-4682-87d6-449835ea4de6",
   "previous_job": {
     "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-    "status": "pending",
-    "template_display_name": "string",
-    "template_icon": "string",
-    "template_name": "string"
+    "status": "pending"
   },
   "provisioners": [
     "string"
@@ -4598,22 +4595,16 @@ Git clone makes use of this by parsing the URL from: 'Username for "https://gith
 ```json
 {
   "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-  "status": "pending",
-  "template_display_name": "string",
-  "template_icon": "string",
-  "template_name": "string"
+  "status": "pending"
 }
 ```
 
 ### Properties
 
-| Name                    | Type                                                           | Required | Restrictions | Description |
-|-------------------------|----------------------------------------------------------------|----------|--------------|-------------|
-| `id`                    | string                                                         | false    |              |             |
-| `status`                | [codersdk.ProvisionerJobStatus](#codersdkprovisionerjobstatus) | false    |              |             |
-| `template_display_name` | string                                                         | false    |              |             |
-| `template_icon`         | string                                                         | false    |              |             |
-| `template_name`         | string                                                         | false    |              |             |
+| Name     | Type                                                           | Required | Restrictions | Description |
+|----------|----------------------------------------------------------------|----------|--------------|-------------|
+| `id`     | string                                                         | false    |              |             |
+| `status` | [codersdk.ProvisionerJobStatus](#codersdkprovisionerjobstatus) | false    |              |             |
 
 #### Enumerated Values
 
@@ -4869,10 +4860,7 @@ Git clone makes use of this by parsing the URL from: 'Username for "https://gith
       "created_at": "2019-08-24T14:15:22Z",
       "current_job": {
         "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-        "status": "pending",
-        "template_display_name": "string",
-        "template_icon": "string",
-        "template_name": "string"
+        "status": "pending"
       },
       "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
       "key_id": "1e779c8a-6786-4c89-b7c3-a6666f5fd6b5",
@@ -4882,10 +4870,7 @@ Git clone makes use of this by parsing the URL from: 'Username for "https://gith
       "organization_id": "7c60d51f-b44e-4682-87d6-449835ea4de6",
       "previous_job": {
         "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-        "status": "pending",
-        "template_display_name": "string",
-        "template_icon": "string",
-        "template_name": "string"
+        "status": "pending"
       },
       "provisioners": [
         "string"
@@ -9895,10 +9880,7 @@ Zero means unspecified. There might be a limit, but the client need not try to r
           "created_at": "2019-08-24T14:15:22Z",
           "current_job": {
             "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-            "status": "pending",
-            "template_display_name": "string",
-            "template_icon": "string",
-            "template_name": "string"
+            "status": "pending"
           },
           "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
           "key_id": "1e779c8a-6786-4c89-b7c3-a6666f5fd6b5",
@@ -9908,10 +9890,7 @@ Zero means unspecified. There might be a limit, but the client need not try to r
           "organization_id": "7c60d51f-b44e-4682-87d6-449835ea4de6",
           "previous_job": {
             "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-            "status": "pending",
-            "template_display_name": "string",
-            "template_icon": "string",
-            "template_name": "string"
+            "status": "pending"
           },
           "provisioners": [
             "string"
@@ -10037,10 +10016,7 @@ Zero means unspecified. There might be a limit, but the client need not try to r
         "created_at": "2019-08-24T14:15:22Z",
         "current_job": {
           "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-          "status": "pending",
-          "template_display_name": "string",
-          "template_icon": "string",
-          "template_name": "string"
+          "status": "pending"
         },
         "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
         "key_id": "1e779c8a-6786-4c89-b7c3-a6666f5fd6b5",
@@ -10050,10 +10026,7 @@ Zero means unspecified. There might be a limit, but the client need not try to r
         "organization_id": "7c60d51f-b44e-4682-87d6-449835ea4de6",
         "previous_job": {
           "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-          "status": "pending",
-          "template_display_name": "string",
-          "template_icon": "string",
-          "template_name": "string"
+          "status": "pending"
         },
         "provisioners": [
           "string"
@@ -10110,10 +10083,7 @@ Zero means unspecified. There might be a limit, but the client need not try to r
     "created_at": "2019-08-24T14:15:22Z",
     "current_job": {
       "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-      "status": "pending",
-      "template_display_name": "string",
-      "template_icon": "string",
-      "template_name": "string"
+      "status": "pending"
     },
     "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
     "key_id": "1e779c8a-6786-4c89-b7c3-a6666f5fd6b5",
@@ -10123,10 +10093,7 @@ Zero means unspecified. There might be a limit, but the client need not try to r
     "organization_id": "7c60d51f-b44e-4682-87d6-449835ea4de6",
     "previous_job": {
       "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
-      "status": "pending",
-      "template_display_name": "string",
-      "template_icon": "string",
-      "template_name": "string"
+      "status": "pending"
     },
     "provisioners": [
       "string"
