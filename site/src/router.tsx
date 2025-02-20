@@ -228,6 +228,10 @@ const AddNewLicensePage = lazy(
 			"./pages/DeploymentSettingsPage/LicensesSettingsPage/AddNewLicensePage"
 		),
 );
+const OrganizationRedirect = lazy(
+	() => import("./pages/OrganizationSettingsPage/OrganizationRedirect"),
+);
+
 const CreateOrganizationPage = lazy(
 	() => import("./pages/OrganizationSettingsPage/CreateOrganizationPage"),
 );
@@ -261,8 +265,11 @@ const CreateEditRolePage = lazy(
 			"./pages/OrganizationSettingsPage/CustomRolesPage/CreateEditRolePage"
 		),
 );
-const OrganizationProvisionersPage = lazy(
-	() => import("./pages/OrganizationSettingsPage/OrganizationProvisionersPage"),
+const ProvisionersPage = lazy(
+	() =>
+		import(
+			"./pages/OrganizationSettingsPage/ProvisionersPage/ProvisionersPage"
+		),
 );
 const TemplateEmbedPage = lazy(
 	() => import("./pages/TemplatePage/TemplateEmbedPage/TemplateEmbedPage"),
@@ -412,7 +419,7 @@ export const router = createBrowserRouter(
 						<Route path="new" element={<CreateOrganizationPage />} />
 
 						{/* General settings for the default org can omit the organization name */}
-						<Route index element={<OrganizationSettingsPage />} />
+						<Route index element={<OrganizationRedirect />} />
 
 						<Route path=":organization" element={<OrganizationSidebarLayout />}>
 							<Route index element={<OrganizationMembersPage />} />
@@ -422,10 +429,7 @@ export const router = createBrowserRouter(
 								<Route path="create" element={<CreateEditRolePage />} />
 								<Route path=":roleName" element={<CreateEditRolePage />} />
 							</Route>
-							<Route
-								path="provisioners"
-								element={<OrganizationProvisionersPage />}
-							/>
+							<Route path="provisioners" element={<ProvisionersPage />} />
 							<Route path="idp-sync" element={<OrganizationIdPSyncPage />} />
 							<Route path="settings" element={<OrganizationSettingsPage />} />
 						</Route>
