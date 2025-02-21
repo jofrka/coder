@@ -468,6 +468,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-require github.com/coder/terraform-provider-coder/v2 v2.1.3 // indirect
-
-replace github.com/coder/terraform-provider-coder => github.com/coder/terraform-provider-coder/v2 v2.1.4-0.20250211100915-129c295afed8
+replace github.com/coder/terraform-provider-coder/v2 => github.com/coder/terraform-provider-coder/v2 v2.1.4-0.20250211100915-129c295afed8

@@ -53,7 +53,6 @@ import (
 	"github.com/coder/coder/v2/tailnet"
 	tailnetproto "github.com/coder/coder/v2/tailnet/proto"
 	"github.com/coder/quartz"
-	"github.com/coder/retry"
 )
 
 const (
