@@ -1133,61 +1133,66 @@ func CoderSigner(seed int64) (gossh.Signer, error) {
 		q := big.NewInt(0)
 		e := big.NewInt(65537) // Standard RSA public exponent
 
-		// Generate deterministic primes using the seeded random
-		// Each prime should be ~1024 bits to get a 2048-bit key
 		for {
-			p.SetBit(p, 1024, 1) // Ensure it's large enough
-			for i := 0; i < 1024; i++ {
-				if deterministicRand.Int63()%2 == 1 {
-					p.SetBit(p, i, 1)
-				} else {
-					p.SetBit(p, i, 0)
+			// Generate deterministic primes using the seeded random
+			// Each prime should be ~1024 bits to get a 2048-bit key
+			for {
+				p.SetBit(p, 1024, 1) // Ensure it's large enough
+				for i := range 1024 {
+					if deterministicRand.Int63()%2 == 1 {
+						p.SetBit(p, i, 1)
+					} else {
+						p.SetBit(p, i, 0)
+					}
+				}
+				p1 := new(big.Int).Sub(p, big.NewInt(1))
+				if p.ProbablyPrime(20) && new(big.Int).GCD(nil, nil, e, p1).Cmp(big.NewInt(1)) == 0 {
+					break
 				}
 			}
-			if p.ProbablyPrime(20) {
-				break
-			}
-		}
 
-		for {
-			q.SetBit(q, 1024, 1) // Ensure it's large enough
-			for i := 0; i < 1024; i++ {
-				if deterministicRand.Int63()%2 == 1 {
-					q.SetBit(q, i, 1)
-				} else {
-					q.SetBit(q, i, 0)
+			for {
+				q.SetBit(q, 1024, 1) // Ensure it's large enough
+				for i := range 1024 {
+					if deterministicRand.Int63()%2 == 1 {
+						q.SetBit(q, i, 1)
+					} else {
+						q.SetBit(q, i, 0)
+					}
+				}
+				q1 := new(big.Int).Sub(q, big.NewInt(1))
+				if q.ProbablyPrime(20) && p.Cmp(q) != 0 && new(big.Int).GCD(nil, nil, e, q1).Cmp(big.NewInt(1)) == 0 {
+					break
 				}
 			}
-			if q.ProbablyPrime(20) && p.Cmp(q) != 0 {
-				break
+
+			// Calculate phi = (p-1) * (q-1)
+			p1 := new(big.Int).Sub(p, big.NewInt(1))
+			q1 := new(big.Int).Sub(q, big.NewInt(1))
+			phi := new(big.Int).Mul(p1, q1)
+
+			// Calculate private exponent d
+			d := new(big.Int).ModInverse(e, phi)
+			if d != nil {
+				// Calculate n = p * q
+				n := new(big.Int).Mul(p, q)
+
+				// Create the private key
+				privateKey := &rsa.PrivateKey{
+					PublicKey: rsa.PublicKey{
+						N: n,
+						E: int(e.Int64()),
+					},
+					D:      d,
+					Primes: []*big.Int{p, q},
+				}
+
+				// Compute precomputed values
+				privateKey.Precompute()
+
+				return privateKey
 			}
 		}
-
-		// Calculate n = p * q
-		n := new(big.Int).Mul(p, q)
-
-		// Calculate phi = (p-1) * (q-1)
-		p1 := new(big.Int).Sub(p, big.NewInt(1))
-		q1 := new(big.Int).Sub(q, big.NewInt(1))
-		phi := new(big.Int).Mul(p1, q1)
-
-		// Calculate private exponent d
-		d := new(big.Int).ModInverse(e, phi)
-
-		// Create the private key
-		privateKey := &rsa.PrivateKey{
-			PublicKey: rsa.PublicKey{
-				N: n,
-				E: int(e.Int64()),
-			},
-			D:      d,
-			Primes: []*big.Int{p, q},
-		}
-
-		// Compute precomputed values
-		privateKey.Precompute()
-
-		return privateKey
 	}()
 
 	coderSigner, err := gossh.NewSignerFromKey(coderHostKey)
